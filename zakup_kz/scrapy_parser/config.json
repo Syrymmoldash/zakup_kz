@@ -1,0 +1,63 @@
+{
+    "cert_path_monitor": "/home/necuk/Downloads/key2/GOSTKNCA_de113b5aa34a4d38ee8836c3e2ae2e3c8e23d06c.p12",
+    "cert_password_monitor": "baRsa01022020",
+    "portal_password_monitor": "baRsa01022020",
+    "cert_path": "/home/necuk/Downloads/GOSTKNCA_de06917abeb353d4e98e6f2d04cc900e91771194.p12",
+    "cert_password": "Leader2020",
+    "portal_password": "Leader2020",
+    "telegram_token": "5239766397:AAEzY_olnexkNaULo1GxK7ZlpO-9e1c6ewE",
+    "chat_id": "-751217779",
+    "items": [
+        {
+            "order": "7352255-1",
+            "form11_order_id": "6967735-1",
+            "address": "\u041a\u0410\u0417\u0410\u0425\u0421\u0422\u0410\u041d, 711110000, 010000, \u0433.\u041d\u0443\u0440-\u0421\u0443\u043b\u0442\u0430\u043d, \u0440\u0430\u0439\u043e\u043d \u0410\u043b\u043c\u0430\u0442\u044b, \u0420\u0410\u041a\u042b\u041c\u0416\u0410\u041d \u041a\u041e\u0428\u041a\u0410\u0420\u0411\u0410\u0415\u0412, 26, 1\u0412",
+            "iik": "\u0411\u0430\u043d\u043a: \u0410\u043a\u0446\u0438\u043e\u043d\u0435\u0440\u043d\u043e\u0435 \u043e\u0431\u0449\u0435\u0441\u0442\u0432\u043e \"\u0411\u0430\u043d\u043a \u0424\u0440\u0438\u0434\u043e\u043c \u0424\u0438\u043d\u0430\u043d\u0441 \u041a\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043d\" \u0418\u0418\u041a: KZ28551A127014873KZT \u0411\u0418\u041a: KSNVKZKA \u041a\u0411\u0435: 15",
+            "price_discount": 0.1,
+            "file_1": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_2": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_15": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_19": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_18": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_11": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_license_1": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_license_2": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_sertificates": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_NDS_register": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt"
+        },
+        {
+            "order": "7278337-2",
+            "form11_order_id": "6967735-1",
+            "address": "\u041a\u0410\u0417\u0410\u0425\u0421\u0422\u0410\u041d, 711110000, 010000, \u0433.\u041d\u0443\u0440-\u0421\u0443\u043b\u0442\u0430\u043d, \u0440\u0430\u0439\u043e\u043d \u0410\u043b\u043c\u0430\u0442\u044b, \u0420\u0410\u041a\u042b\u041c\u0416\u0410\u041d \u041a\u041e\u0428\u041a\u0410\u0420\u0411\u0410\u0415\u0412, 26, 1\u0412",
+            "iik": "\u0411\u0430\u043d\u043a: \u0410\u043a\u0446\u0438\u043e\u043d\u0435\u0440\u043d\u043e\u0435 \u043e\u0431\u0449\u0435\u0441\u0442\u0432\u043e \"\u0411\u0430\u043d\u043a \u0424\u0440\u0438\u0434\u043e\u043c \u0424\u0438\u043d\u0430\u043d\u0441 \u041a\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043d\" \u0418\u0418\u041a: KZ28551A127014873KZT \u0411\u0418\u041a: KSNVKZKA \u041a\u0411\u0435: 15",
+            "price_discount": 0.1,
+            "file_1": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_2": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_15": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_19": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_18": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_11": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_license_1": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_license_2": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_sertificates": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_NDS_register": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt"
+        },
+        {
+            "order": "7364020-1",
+            "form11_order_id": "6967735-1",
+            "address": "\u041a\u0410\u0417\u0410\u0425\u0421\u0422\u0410\u041d, 711110000, 010000, \u0433.\u041d\u0443\u0440-\u0421\u0443\u043b\u0442\u0430\u043d, \u0440\u0430\u0439\u043e\u043d \u0410\u043b\u043c\u0430\u0442\u044b, \u0420\u0410\u041a\u042b\u041c\u0416\u0410\u041d \u041a\u041e\u0428\u041a\u0410\u0420\u0411\u0410\u0415\u0412, 26, 1\u0412",
+            "iik": "\u0411\u0430\u043d\u043a: \u0410\u043a\u0446\u0438\u043e\u043d\u0435\u0440\u043d\u043e\u0435 \u043e\u0431\u0449\u0435\u0441\u0442\u0432\u043e \"\u0411\u0430\u043d\u043a \u0424\u0440\u0438\u0434\u043e\u043c \u0424\u0438\u043d\u0430\u043d\u0441 \u041a\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043d\" \u0418\u0418\u041a: KZ28551A127014873KZT \u0411\u0418\u041a: KSNVKZKA \u041a\u0411\u0435: 15",
+            "price_discount": 0.1,
+            "file_1": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_2": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_15": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_19": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_18": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_11": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_license_1": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_license_2": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_sertificates": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt",
+            "file_NDS_register": "file:///home/necuk/Desktop/zakup_kz/misc/file.txt"
+        }
+    ]
+}

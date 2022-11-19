@@ -1,0 +1,85 @@
+6877648-2, 7008280-2, 6902820-2
+
+
+7196072-1, 7195868-1
+
+
+https://github.com/sigex-kz/ncalayer-js-client
+https://github.com/sigex-kz/ncalayer-js-client/blob/master/API.md
+
+Leader2020
+
+baRsa01022020
+
+
+https://httptoolkit.tech/
+
+
+
+"/home/necuk/Desktop/ncalayer/NCALayer/ncalayer.sh" --run
+
+
+cd ~/.config/NCALayer
+jar uf NURSignBundle-4.3.1.jar /home/necuk/Downloads/HttpUtil.class
+
+~/Downloads/nursign_source/kz/ecc/nursign
+grep -rnw . -e 'POST'
+
+cd ~/.config/NCALayer
+tail -100 ncalayer.log
+
+
+https://v3bl.goszakup.gov.kz/ru/files/upload_file_new
+
+------------------------
+
+
+https://pki.gov.kz/forum/7-dlya-razrabotchikov/4311-avtorizatsiya-metody-ncalayer.html
+Список доступных методов:
+getActiveTokens
+getKeyInfo
+signXml
+createCMSSignatureFromFile
+showFileChooser
+createCMSSignatureFromBase64
+
+
+pro auth
+https://pki.gov.kz/forum/7-dlya-razrabotchikov/4311-avtorizatsiya-metody-ncalayer.html
+
+-----------------
+forma 11 - iz kakoi za9vki brat dannie?
+принадлежность к процедуре банкротства - что выбирать
+на какие лоты ставить галочки?
+
+
+----
+Разрешения первой категории (Лицензии)
+сюда какие файлы прикреплять и где их брать
+------------
+Свидетельства, сертификаты, дипломы и другие документы
+сюда какие файлы и где брать
+какие кнопки нажимать? их там 3: прикрепить, добавить файл, копировать из других закупок
+
+^^ CHEREZ prikrepitb faul
+
+
+-----
+2 минуты это норм?
+
+что сейчас наиболее важно делать в первую очередь?
+
+
+
+
+
+много ли вариатов приложений бывает? как их все посмотреть?
+
+
+
+
+{'from_lot': '33660620', 'anno_number': '6967735-1', 'submit': 'Применить', 'to_lot[]': ['34117817', '34117818']}
+
+
+https://jpype.readthedocs.io/en/latest/
+https://www.py4j.org/
