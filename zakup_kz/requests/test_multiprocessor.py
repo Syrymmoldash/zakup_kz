@@ -6,9 +6,6 @@ import responses
 import multiprocessor
 
 
-responses.get("https://ipv4.webshare.io/", "0.0.0.0")
-
-
 class MultiprocessorTestCase(unittest.TestCase):
     def setUp(self):
         self.processor = multiprocessor.MultiProcessor(
@@ -16,6 +13,7 @@ class MultiprocessorTestCase(unittest.TestCase):
             delay502=10,
             delay502_increment=1
         )
+        responses.get("https://ipv4.webshare.io/", "0.0.0.0")
 
     @responses.activate 
     def test_delay(self):
@@ -49,7 +47,6 @@ class MultiprocessorTestCase(unittest.TestCase):
 
 
 class MultiProcessingMainTestCase(unittest.TestCase):
-    @responses.activate 
     def test_exception_delay(self):
         exception_delay = 20
         args = multiprocessor.parser.parse_args([
@@ -62,6 +59,27 @@ class MultiProcessingMainTestCase(unittest.TestCase):
                 multiprocessor.main(args)
                 sleep.assert_called_once_with(exception_delay)
 
+    def test_parallel_document_upload_on(self):
+        args = multiprocessor.parser.parse_args([
+            "--config=config.json",
+            "--parallel-document-upload",
+        ])
+        with mock.patch("multiprocessor.MultiProcessor.run") as run:
+            run.return_value = None
+            with mock.patch("time.sleep") as sleep:
+                proc = multiprocessor.main(args)
+                self.assertTrue(proc.parallel_document_upload)
+
+    def test_parallel_document_upload_off(self):
+        args = multiprocessor.parser.parse_args([
+            "--config=config.json",
+        ])
+        with mock.patch("multiprocessor.MultiProcessor.run") as run:
+            run.return_value = None
+            with mock.patch("time.sleep") as sleep:
+                proc = multiprocessor.main(args)
+                self.assertFalse(proc.parallel_document_upload)
+                
 
 if __name__ == "__main__":
     unittest.main()

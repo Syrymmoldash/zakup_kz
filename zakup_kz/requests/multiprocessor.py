@@ -51,6 +51,11 @@ parser.add_argument(
     metavar="SECONDS",
     help=f"Sepecify the number of SECONDS to add to the delay each time we encounter a 502 response. Default is {RESPONSE502_DELAY_INC}"
 )
+parser.add_argument(
+    "--parallel-document-upload",
+    action="store_true",
+    help="Allow for the document upload to run in parallel.",
+)
 
 
 class MultiProcessor(Processor):
@@ -64,7 +69,8 @@ class MultiProcessor(Processor):
         infinite=False,
         ignore_applied_orders=True,
         delay502=5,
-        delay502_increment=0
+        delay502_increment=0,
+        parallel_document_upload=False,
         ):
 
         self.setup_logger()
@@ -80,6 +86,7 @@ class MultiProcessor(Processor):
         self.ignore_applied_orders = ignore_applied_orders
         self.delay502 = delay502
         self.delay502_increment = delay502_increment
+        self.parallel_document_upload = parallel_document_upload
    
 
     def read_config(self, config_path):
@@ -225,6 +232,7 @@ def main(args=None):
         ignore_applied_orders=args.ignore_applied,
         delay502=args.response502_delay,
         delay502_increment=args.response502_delay_increment,
+        parallel_document_upload=args.parallel_document_upload,
     )
 
     delay = args.exception_delay
@@ -238,6 +246,8 @@ def main(args=None):
             multi_processor.mylogger.info(f"\n sleep for {delay} seconds\n")
             time.sleep(delay)
             delay += args.exception_delay_increment
+
+    return multi_processor
 
 
 if __name__ == "__main__":

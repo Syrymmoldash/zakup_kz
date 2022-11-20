@@ -1,8 +1,10 @@
 from base64 import b64encode
 import json
+import threading
 import time
 import ntpath
 from datetime import datetime
+import random
 
 import requests
 import backoff
@@ -157,6 +159,64 @@ class DocumentsUploader:
 
         return r
 
+    def upload_document(self, i, row):
+        # if i == 5:
+        #     self.proxy_apply = self.proxy_apply2
+        #     self.run_auth()
+
+        self.mylogger.info("")
+        self.mylogger.info(f"processing document {i+1}/{self.to_process}")
+
+        name = row.xpath('.//a/text()').get()
+        link = row.xpath('.//a').attrib['href']
+        document_id = link.split(sep='/')[-1]
+        circle_class = row.xpath('.//span/@class').get()
+        red_circle = 1 if circle_class == 'glyphicon glyphicon-remove-circle' else 0
+
+        if ('Приложение 1 ' in name) and red_circle:
+            self.processed.discard(1)
+            self.form1(document_id)
+
+        elif ('Приложение 2 ' in name) and red_circle:
+            self.processed.discard(2)
+            self.form2(document_id)
+
+        elif ('Приложение 11' in name) and red_circle:
+            self.processed.discard(11)
+            self.form11(document_id)
+
+        elif ('Приложение 18' in name) and red_circle:
+            self.processed.discard(18)
+            self.form18(document_id)
+
+        # # no red_circle check because it has green circle at the start even though it needs some action to be made
+        # # guess its a website bug
+        elif 'Приложение 15' in name:
+            self.form15(document_id)
+
+        elif ('Разрешения первой категории (Лицензии)' in name) and red_circle:
+            self.processed.discard('license_1')
+            self.user_file_upload(document_id, 'license_1')
+            self.mylogger.info('processed license_1')
+
+        elif ('Разрешения второй категории' in name) and red_circle:
+            self.processed.discard('license_1')
+            self.user_file_upload(document_id, 'license_2')
+
+        elif ('Свидетельства, сертификаты, дипломы и другие документы' in name) and red_circle:
+            self.processed.discard('sertificates')
+            self.user_file_upload(document_id, 'sertificates')
+
+        elif ('Свидетельство о постановке на учет по НДС' in name) and red_circle:
+            self.processed.discard('NDS_register')
+            self.user_file_upload(document_id, 'NDS_register')
+
+        elif ('Приложение 19' in name) and red_circle:
+            self.processed.discard(19)
+            self.form19(document_id)
+
+        if red_circle:
+            time.sleep(4)
 
     def upload_documents(self, wait_affiliates=True):
         self.mylogger.info("uploading required documents...")
@@ -176,65 +236,22 @@ class DocumentsUploader:
 
         documents_start_token = self.token
 
-        for i, row in enumerate(rows[1:]):
+        if self.parallel_document_upload:
+            self.mylogger.info("Parallel documents upload")
+            document_threads = []
+            for i, row in enumerate(rows[1:]):
+                thread = threading.Thread(target=self.upload_document, args=(i, row))
+                thread.daemon = True
+                document_threads.append(thread)
+                thread.start()
 
-            # if i == 5:
-            #     self.proxy_apply = self.proxy_apply2
-            #     self.run_auth()
-
-            self.mylogger.info("")
-            self.mylogger.info(f"processing document {i+1}/{self.to_process}")
-
-            name = row.xpath('.//a/text()').get()
-            link = row.xpath('.//a').attrib['href']
-            document_id = link.split(sep='/')[-1]
-            circle_class = row.xpath('.//span/@class').get()
-            red_circle = 1 if circle_class == 'glyphicon glyphicon-remove-circle' else 0
-
-            if ('Приложение 1 ' in name) and red_circle:
-                self.processed.discard(1)
-                self.form1(document_id)
-
-            elif ('Приложение 2 ' in name) and red_circle:
-                self.processed.discard(2)
-                self.form2(document_id)
-
-            elif ('Приложение 11' in name) and red_circle:
-                self.processed.discard(11)
-                self.form11(document_id)
-
-            elif ('Приложение 18' in name) and red_circle:
-                self.processed.discard(18)
-                self.form18(document_id)
-
-            # # no red_circle check because it has green circle at the start even though it needs some action to be made
-            # # guess its a website bug
-            elif 'Приложение 15' in name:
-                self.form15(document_id)
-
-            elif ('Разрешения первой категории (Лицензии)' in name) and red_circle:
-                self.processed.discard('license_1')
-                self.user_file_upload(document_id, 'license_1')
-                self.mylogger.info('processed license_1')
-
-            elif ('Разрешения второй категории' in name) and red_circle:
-                self.processed.discard('license_1')
-                self.user_file_upload(document_id, 'license_2')
-
-            elif ('Свидетельства, сертификаты, дипломы и другие документы' in name) and red_circle:
-                self.processed.discard('sertificates')
-                self.user_file_upload(document_id, 'sertificates')
-
-            elif ('Свидетельство о постановке на учет по НДС' in name) and red_circle:
-                self.processed.discard('NDS_register')
-                self.user_file_upload(document_id, 'NDS_register')
-
-            elif ('Приложение 19' in name) and red_circle:
-                self.processed.discard(19)
-                self.form19(document_id)
-
-            if red_circle:
-                time.sleep(4)
+            # Waiting for the threads to finish.
+            for thread in document_threads:
+                thread.join()
+        else:
+            self.mylogger.info("Serial documents upload")
+            for i, row in enumerate(rows[1:]):
+                self.upload_document(i, row)
 
         self.documents_end_time = time.time()
         self.run_auth()
