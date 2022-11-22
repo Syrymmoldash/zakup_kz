@@ -225,7 +225,6 @@ class Monitor:
 
     def multi_monitor(self, delay_502=5, delay_502_increment=5):
         self.monitor_count = 0
-        delay_502 = self.delay_502
 
         if self.ignore_applied_orders:
             self.mylogger.info("filtering out previously applied orders...")

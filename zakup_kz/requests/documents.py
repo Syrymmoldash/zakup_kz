@@ -257,6 +257,8 @@ class DocumentsUploader:
         self.run_auth()
         if wait_affiliates:
             return self.wait_for_affiliates()
+        else:
+            self.affiliate_start_time = self.affiliate_end_time  = time.time()
 
 
     def form1(self, document_id):

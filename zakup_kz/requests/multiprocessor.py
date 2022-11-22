@@ -56,6 +56,12 @@ parser.add_argument(
     action="store_true",
     help="Allow for the document upload to run in parallel.",
 )
+parser.add_argument(
+    "--wait-affiliates",
+    type=int,
+    default=1,
+    help="Can be set to 0 to continue without waiting for the affiliates to appear. Default is 1 (waiting for affilates)",
+)
 
 
 class MultiProcessor(Processor):
@@ -71,6 +77,7 @@ class MultiProcessor(Processor):
         delay502=5,
         delay502_increment=0,
         parallel_document_upload=False,
+        wait_affiliates=True,
         ):
 
         self.setup_logger()
@@ -87,6 +94,7 @@ class MultiProcessor(Processor):
         self.delay502 = delay502
         self.delay502_increment = delay502_increment
         self.parallel_document_upload = parallel_document_upload
+        self.wait_affiliates = wait_affiliates
    
 
     def read_config(self, config_path):
@@ -189,7 +197,7 @@ class MultiProcessor(Processor):
             self.create_application()
 
             self.documents_start_time = time.time()
-            upload_status = self.upload_documents()
+            upload_status = self.upload_documents(wait_affiliates=self.wait_affiliates)
 
             if upload_status == -1:
                 self.detect_previous_app(remove=True)
@@ -233,6 +241,7 @@ def main(args=None):
         delay502=args.response502_delay,
         delay502_increment=args.response502_delay_increment,
         parallel_document_upload=args.parallel_document_upload,
+        wait_affiliates=bool(args.wait_affiliates),
     )
 
     delay = args.exception_delay
