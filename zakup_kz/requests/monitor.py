@@ -223,9 +223,8 @@ class Monitor:
 
 
 
-    def multi_monitor(self):
+    def multi_monitor(self, delay_502=5, delay_502_increment=5):
         self.monitor_count = 0
-        self.delay_502 = 5
 
         if self.ignore_applied_orders:
             self.mylogger.info("filtering out previously applied orders...")
@@ -263,9 +262,9 @@ class Monitor:
                 continue
 
             if response.status == 502:
-                self.mylogger.info(f"502 response, sleeping for {self.delay_502}")
-                time.sleep(self.delay_502)
-                self.delay_502 += 5
+                self.mylogger.info(f"502 response, sleeping for {delay_502}")
+                time.sleep(delay_502)
+                delay_502 += delay_502_increment
                 continue
 
             if ('Страница не найдена' in response.text) or ('Доступ запрещен' in response.text):

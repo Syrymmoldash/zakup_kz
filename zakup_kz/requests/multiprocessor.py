@@ -9,21 +9,59 @@ import requests
 
 from processor import Processor
 
-def init_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--proxy_monitor', type=str, default="")
-    parser.add_argument('--proxy_apply', type=str, default="")
+EXCEPTION_DELAY = 300
+EXCEPTION_DELAY_INC = 0
+RESPONSE502_DELAY = 5
+RESPONSE502_DELAY_INC = 0
 
-    parser.add_argument('--config', type=str)
-
-    parser.add_argument('--publish', type=int, default=1)
-    parser.add_argument('--fake_monitor', type=int, default=0)
-
-    parser.add_argument('--remove_previous', type=int, default=0)
-    parser.add_argument('--infinite', type=int, default=0)
-    parser.add_argument('--ignore_applied', type=int, default=1)
-
-    return parser.parse_args()
+parser = argparse.ArgumentParser()
+parser.add_argument('--proxy_monitor', type=str, default="")
+parser.add_argument('--proxy_apply', type=str, default="")
+parser.add_argument('--config', type=str)
+parser.add_argument('--publish', type=int, default=1)
+parser.add_argument('--fake_monitor', type=int, default=0)
+parser.add_argument('--remove_previous', type=int, default=0)
+parser.add_argument('--infinite', type=int, default=0)
+parser.add_argument('--ignore_applied', type=int, default=1)
+parser.add_argument(
+    '--exception-delay',
+    type=int,
+    default=EXCEPTION_DELAY,
+    metavar="SECONDS",
+    help=f"Specify the number of SECONDS to wait when the main process encounters an excepion. Default is {EXCEPTION_DELAY}"
+)
+parser.add_argument(
+    '--exception-delay-increment',
+    type=int,
+    default=EXCEPTION_DELAY_INC,
+    metavar="SECONDS",
+    help=f"Specify the number of SECONDS to add to the delay each time we enconter an exception. Default is {EXCEPTION_DELAY_INC}"
+)
+parser.add_argument(
+    '--response502-delay',
+    type=int,
+    default=RESPONSE502_DELAY,
+    metavar="SECONDS",
+    help=f"Specify the number of SECONDS to wait before retrying when we receive a 502 response. Default is {RESPONSE502_DELAY}"
+)
+parser.add_argument(
+    '--response502-delay-increment',
+    type=int,
+    default=RESPONSE502_DELAY_INC,
+    metavar="SECONDS",
+    help=f"Sepecify the number of SECONDS to add to the delay each time we encounter a 502 response. Default is {RESPONSE502_DELAY_INC}"
+)
+parser.add_argument(
+    "--parallel-document-upload",
+    action="store_true",
+    help="Allow for the document upload to run in parallel.",
+)
+parser.add_argument(
+    "--wait-affiliates",
+    type=int,
+    default=1,
+    help="Can be set to 0 to continue without waiting for the affiliates to appear. Default is 1 (waiting for affilates)",
+)
 
 
 class MultiProcessor(Processor):
@@ -35,7 +73,11 @@ class MultiProcessor(Processor):
         proxy_monitor=None, 
         proxy_apply=None,
         infinite=False,
-        ignore_applied_orders=True
+        ignore_applied_orders=True,
+        delay502=5,
+        delay502_increment=0,
+        parallel_document_upload=False,
+        wait_affiliates=True,
         ):
 
         self.setup_logger()
@@ -49,10 +91,15 @@ class MultiProcessor(Processor):
         self.proxy_apply = proxy_apply
         self.infinite = infinite
         self.ignore_applied_orders = ignore_applied_orders
+        self.delay502 = delay502
+        self.delay502_increment = delay502_increment
+        self.parallel_document_upload = parallel_document_upload
+        self.wait_affiliates = wait_affiliates
    
 
     def read_config(self, config_path):
-        self.config = json.load(open(config_path))
+        with open(config_path) as fd:
+            self.config = json.load(fd)
         self.orders = [
             {
                 'order': self.head(item['order']) + '-1',
@@ -113,11 +160,11 @@ class MultiProcessor(Processor):
         return '\n'.join([
             self.time(),
             self.order,
-            f"TOTAL AUTH TIME {(parser.auth_end_time-parser.auth_start_time):.1f}",
-            f"APPLICATION CREATION {(parser.create_end_time-parser.create_start_time):.1f}",
-            f"DOCUMENTS UPLOAD TIME {(parser.documents_end_time-parser.documents_start_time):.1f}",
-            f"AFFILIATE WAIT {parser.affiliate_end_time - parser.affiliate_start_time:.1f}",
-            f"PRICES UPLOAD {parser.prices_end_time - parser.prices_start_time:.1f}",
+            f"TOTAL AUTH TIME {(self.auth_end_time-self.auth_start_time):.1f}",
+            f"APPLICATION CREATION {(self.create_end_time-self.create_start_time):.1f}",
+            f"DOCUMENTS UPLOAD TIME {(self.documents_end_time-self.documents_start_time):.1f}",
+            f"AFFILIATE WAIT {self.affiliate_end_time - self.affiliate_start_time:.1f}",
+            f"PRICES UPLOAD {self.prices_end_time - self.prices_start_time:.1f}",
         ])
 
 
@@ -136,67 +183,81 @@ class MultiProcessor(Processor):
 
     def run(self):
         self.get_my_ip()
-
         while True:
-            parser.start_time = time.time()
-            parser.run_auth()
+            self.start_time = time.time()
+            self.run_auth()
 
-            open_item = parser.multi_monitor()
+            open_item = self.multi_monitor(delay_502=self.delay502, delay_502_increment=self.delay502_increment)
 
             if not open_item:
                 self.mylogger.info("\n=== NO ITEM RETURNED FROM THE MONITOR PROCESS!\n")
                 return
 
-            parser.tax_debt_upload()
-            parser.create_application()
+            self.tax_debt_upload()
+            self.create_application()
 
             self.documents_start_time = time.time()
-            upload_status = parser.upload_documents()
+            upload_status = self.upload_documents(wait_affiliates=self.wait_affiliates)
 
             if upload_status == -1:
                 self.detect_previous_app(remove=True)
                 continue
 
-            parser.submit_prices()
-            parser.tax_debt_upload()
-            parser.publish_application()
+            self.submit_prices()
+            self.tax_debt_upload()
+            self.publish_application()
 
 
-            parser.end_time = time.time()
+            self.end_time = time.time()
 
             self.mylogger.info(self.get_stats())
             # self.send_telegram(self.get_stats())
 
 
-            if not parser.infinite:
-                parser.orders = [o for o in parser.orders if o['order_id'] != open_item['order_id']]
+            if not self.infinite:
+                self.orders = [o for o in self.orders if o['order_id'] != open_item['order_id']]
 
             # if self.infinite:
             #     self.fake_monitor = random.randint(100, 5000)
 
-            if not parser.orders:
+            if not self.orders:
                 self.mylogger.info("NO MORE ORDERS TO MONITOR!")
                 break
 
 
-if __name__ == '__main__':
-    args = init_args()
+def main(args=None):
+    if args is None:
+        args = parser.parse_args()
 
-    delay = 60*5
-
-    parser = MultiProcessor(
-        args.config, args.remove_previous, 
-        args.fake_monitor, args.publish, 
-        args.proxy_monitor, args.proxy_apply,
-        args.infinite, args.ignore_applied
+    multi_processor = MultiProcessor(
+        config_path=args.config,
+        remove_previous=args.remove_previous,
+        fake_monitor=args.fake_monitor,
+        publish=args.publish,
+        proxy_monitor=args.proxy_monitor,
+        proxy_apply=args.proxy_apply,
+        infinite=args.infinite,
+        ignore_applied_orders=args.ignore_applied,
+        delay502=args.response502_delay,
+        delay502_increment=args.response502_delay_increment,
+        parallel_document_upload=args.parallel_document_upload,
+        wait_affiliates=bool(args.wait_affiliates),
     )
+
+    delay = args.exception_delay
 
     while True:
         try:
-            parser.run()
+            multi_processor.run()
             break
         except Exception as e:
-            parser.mylogger.exception(e)
-            parser.mylogger.info(f"\n sleep for {delay} seconds\n")
-            time.sleep(max(delay, 300))
-            delay += 60
+            multi_processor.mylogger.exception(e)
+            multi_processor.mylogger.info(f"\n sleep for {delay} seconds\n")
+            time.sleep(delay)
+            delay += args.exception_delay_increment
+
+    return multi_processor
+
+
+if __name__ == "__main__":
+    main()
