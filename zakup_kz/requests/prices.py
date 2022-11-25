@@ -257,11 +257,14 @@ class PricesSubmit:
         # sometimes some documents wont be uploaded
         # in this case lets try it for 1 more time
         if not prices:
-            self.upload_documents(self.wait_affiliates)
-            self.submit_documents()
-            r = self.prices_main_page()
-            prices = self.gen_prices(r)
-
+            for i in range(20):
+                self.upload_documents(self.wait_affiliates)
+                self.submit_documents()
+                r = self.prices_main_page()
+                prices = self.gen_prices(r)
+                if prices:
+                    break
+                time.sleep(5)
 
         # time.sleep(1.2)
         data_upload1 = self.prices_upload_1(prices)

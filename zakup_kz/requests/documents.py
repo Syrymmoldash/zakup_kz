@@ -226,40 +226,46 @@ class DocumentsUploader:
 
         table = response.xpath('.//table[@class="table table-bordered table-striped table-hover"]')[0]
         rows = table.xpath('.//tr')
+        uploaded_documents = len(response.xpath('.//div[@class="panel-body"]/table//span[@class="glyphicon glyphicon-ok-circle"]'))
 
         self.to_process = len(rows[1:])
 
-        # now we are going to exclude all the documents that are not processed in order to
-        # process the ones we needed, but also account for the ones that were already processed before.
-        # self.processed = {1, 2, 'license_2', 11, 15, 18, 'NDS_register', 19, 'license_1', 'sertificates'}
-        self.processed = set()
+        while uploaded_documents != self.to_process:
+            # now we are going to exclude all the documents that are not processed in order to
+            # process the ones we needed, but also account for the ones that were already processed before.
+            # self.processed = {1, 2, 'license_2', 11, 15, 18, 'NDS_register', 19, 'license_1', 'sertificates'}
+            self.processed = set()
+            if self.parallel_document_upload:
+                self.mylogger.info("Parallel documents upload")
+                document_threads = []
+                for i, row in enumerate(rows[1:]):
+                    thread = threading.Thread(target=self.upload_document, args=(i, row))
+                    thread.daemon = True
+                    document_threads.append(thread)
+                    thread.start()
 
-        documents_start_token = self.token
-
-        if self.parallel_document_upload:
-            self.mylogger.info("Parallel documents upload")
-            document_threads = []
-            for i, row in enumerate(rows[1:]):
-                thread = threading.Thread(target=self.upload_document, args=(i, row))
-                thread.daemon = True
-                document_threads.append(thread)
-                thread.start()
-
-            # Waiting for the threads to finish.
-            for thread in document_threads:
-                thread.join()
-        else:
-            self.mylogger.info("Serial documents upload")
-            for i, row in enumerate(rows[1:]):
-                self.upload_document(i, row)
+                # Waiting for the threads to finish.
+                for thread in document_threads:
+                    thread.join()
+            else:
+                self.mylogger.info("Serial documents upload")
+                for i, row in enumerate(rows[1:]):
+                    self.upload_document(i, row)
+            time.sleep(2)
+            r = self.load_main_documents_page()
+            response = HtmlResponse(url=r.url, body=r.text, encoding='utf-8')
+            table = response.xpath('.//table[@class="table table-bordered table-striped table-hover"]')[0]
+            rows = table.xpath('.//tr')
+            uploaded_documents = len(response.xpath('.//div[@class="panel-body"]/table//span[@class="glyphicon glyphicon-ok-circle"]'))
+            self.mylogger.info(f"Uploaded {uploaded_documents} of {self.to_process}")
 
         self.documents_end_time = time.time()
         self.run_auth()
         if wait_affiliates:
             return self.wait_for_affiliates()
         else:
-            self.affiliate_start_time = self.affiliate_end_time  = time.time()
 
+            self.affiliate_start_time = self.affiliate_end_time  = time.time()
 
     def form1(self, document_id):
         # self.mylogger.info('processing form1...')
@@ -1146,7 +1152,6 @@ class DocumentsUploader:
             token = self.token
             self.user_file_upload(subdocument_id_full, 19)
             time.sleep(0.35)
-
 
     def wait_for_affiliates(self):
         self.affiliate_start_time = time.time()
