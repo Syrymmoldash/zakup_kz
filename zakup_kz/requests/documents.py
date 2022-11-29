@@ -7,6 +7,8 @@ from datetime import datetime
 import random
 
 import requests
+from trace import TraceDuration
+
 import backoff
 from requests_toolbelt.multipart.encoder import MultipartEncoder
 from scrapy.http import HtmlResponse
@@ -163,57 +165,57 @@ class DocumentsUploader:
         # if i == 5:
         #     self.proxy_apply = self.proxy_apply2
         #     self.run_auth()
-
         self.mylogger.info("")
         self.mylogger.info(f"processing document {i+1}/{self.to_process}")
 
         name = row.xpath('.//a/text()').get()
-        link = row.xpath('.//a').attrib['href']
-        document_id = link.split(sep='/')[-1]
-        circle_class = row.xpath('.//span/@class').get()
-        red_circle = 1 if circle_class == 'glyphicon glyphicon-remove-circle' else 0
+        with TraceDuration(self.traces, name, cat="run,document_upload"):
+            link = row.xpath('.//a').attrib['href']
+            document_id = link.split(sep='/')[-1]
+            circle_class = row.xpath('.//span/@class').get()
+            red_circle = 1 if circle_class == 'glyphicon glyphicon-remove-circle' else 0
 
-        if ('Приложение 1 ' in name) and red_circle:
-            self.processed.discard(1)
-            self.form1(document_id)
+            if ('Приложение 1 ' in name) and red_circle:
+                self.processed.discard(1)
+                self.form1(document_id)
 
-        elif ('Приложение 2 ' in name) and red_circle:
-            self.processed.discard(2)
-            self.form2(document_id)
+            elif ('Приложение 2 ' in name) and red_circle:
+                self.processed.discard(2)
+                self.form2(document_id)
 
-        elif ('Приложение 11' in name) and red_circle:
-            self.processed.discard(11)
-            self.form11(document_id)
+            elif ('Приложение 11' in name) and red_circle:
+                self.processed.discard(11)
+                self.form11(document_id)
 
-        elif ('Приложение 18' in name) and red_circle:
-            self.processed.discard(18)
-            self.form18(document_id)
+            elif ('Приложение 18' in name) and red_circle:
+                self.processed.discard(18)
+                self.form18(document_id)
 
-        # # no red_circle check because it has green circle at the start even though it needs some action to be made
-        # # guess its a website bug
-        elif 'Приложение 15' in name:
-            self.form15(document_id)
+            # # no red_circle check because it has green circle at the start even though it needs some action to be made
+            # # guess its a website bug
+            elif 'Приложение 15' in name:
+                self.form15(document_id)
 
-        elif ('Разрешения первой категории (Лицензии)' in name) and red_circle:
-            self.processed.discard('license_1')
-            self.user_file_upload(document_id, 'license_1')
-            self.mylogger.info('processed license_1')
+            elif ('Разрешения первой категории (Лицензии)' in name) and red_circle:
+                self.processed.discard('license_1')
+                self.user_file_upload(document_id, 'license_1')
+                self.mylogger.info('processed license_1')
 
-        elif ('Разрешения второй категории' in name) and red_circle:
-            self.processed.discard('license_1')
-            self.user_file_upload(document_id, 'license_2')
+            elif ('Разрешения второй категории' in name) and red_circle:
+                self.processed.discard('license_1')
+                self.user_file_upload(document_id, 'license_2')
 
-        elif ('Свидетельства, сертификаты, дипломы и другие документы' in name) and red_circle:
-            self.processed.discard('sertificates')
-            self.user_file_upload(document_id, 'sertificates')
+            elif ('Свидетельства, сертификаты, дипломы и другие документы' in name) and red_circle:
+                self.processed.discard('sertificates')
+                self.user_file_upload(document_id, 'sertificates')
 
-        elif ('Свидетельство о постановке на учет по НДС' in name) and red_circle:
-            self.processed.discard('NDS_register')
-            self.user_file_upload(document_id, 'NDS_register')
+            elif ('Свидетельство о постановке на учет по НДС' in name) and red_circle:
+                self.processed.discard('NDS_register')
+                self.user_file_upload(document_id, 'NDS_register')
 
-        elif ('Приложение 19' in name) and red_circle:
-            self.processed.discard(19)
-            self.form19(document_id)
+            elif ('Приложение 19' in name) and red_circle:
+                self.processed.discard(19)
+                self.form19(document_id)
 
         if red_circle:
             time.sleep(4)

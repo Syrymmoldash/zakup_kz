@@ -161,6 +161,8 @@ class AuthClass:
         self.mylogger.info("started auth procedure")
         self.auth_start_time = time.time()
         self.session = requests.Session()
+        if self.tracing_enabled():
+            self.session.hooks = {"response": self.trace_response}
 
         retries = Retry(total=10,
                         backoff_factor=0.1,

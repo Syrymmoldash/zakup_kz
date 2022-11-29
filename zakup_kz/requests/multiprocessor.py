@@ -3,11 +3,14 @@ import argparse
 import logging
 import os
 from datetime import datetime
+import threading
 import time
 import random
 import requests
+from urllib.parse import urlparse
 
 from processor import Processor
+from trace import TraceDuration
 
 EXCEPTION_DELAY = 300
 EXCEPTION_DELAY_INC = 0
@@ -52,15 +55,24 @@ parser.add_argument(
     help=f"Sepecify the number of SECONDS to add to the delay each time we encounter a 502 response. Default is {RESPONSE502_DELAY_INC}"
 )
 parser.add_argument(
+    "-p",
     "--parallel-document-upload",
     action="store_true",
     help="Allow for the document upload to run in parallel.",
 )
 parser.add_argument(
+    "-w",
     "--wait-affiliates",
     type=int,
     default=1,
     help="Can be set to 0 to continue without waiting for the affiliates to appear. Default is 1 (waiting for affilates)",
+)
+parser.add_argument(
+    "-t",
+    "--trace",
+    metavar="TRACING_FILE",
+    type=argparse.FileType("w"),
+    help="Enable tracing to TRACING_FILE.",
 )
 
 
@@ -78,6 +90,7 @@ class MultiProcessor(Processor):
         delay502_increment=0,
         parallel_document_upload=False,
         wait_affiliates=True,
+        tracing_output=None,
         ):
 
         self.setup_logger()
@@ -95,7 +108,12 @@ class MultiProcessor(Processor):
         self.delay502_increment = delay502_increment
         self.parallel_document_upload = parallel_document_upload
         self.wait_affiliates = wait_affiliates
-   
+        self.tracing_output = tracing_output
+
+        self.traces = []
+    
+    def tracing_enabled(self):
+        return bool(self.tracing_output)
 
     def read_config(self, config_path):
         with open(config_path) as fd:
@@ -185,27 +203,35 @@ class MultiProcessor(Processor):
         self.get_my_ip()
         while True:
             self.start_time = time.time()
-            self.run_auth()
+            with TraceDuration(self.traces, "run_auth", cat="run"):
+                self.run_auth()
 
-            open_item = self.multi_monitor(delay_502=self.delay502, delay_502_increment=self.delay502_increment)
+            with TraceDuration(self.traces, "multi_monitor", cat="run"):
+                open_item = self.multi_monitor(delay_502=self.delay502, delay_502_increment=self.delay502_increment)
 
             if not open_item:
                 self.mylogger.info("\n=== NO ITEM RETURNED FROM THE MONITOR PROCESS!\n")
                 return
 
-            self.tax_debt_upload()
-            self.create_application()
+            with TraceDuration(self.traces, "tax_debt_upload", cat="run"):
+                self.tax_debt_upload()
+            with TraceDuration(self.traces, "create_application", cat="run"):
+                self.create_application()
 
             self.documents_start_time = time.time()
-            upload_status = self.upload_documents(wait_affiliates=self.wait_affiliates)
+            with TraceDuration(self.traces, "upload_documents", cat="run"):
+                upload_status = self.upload_documents(wait_affiliates=self.wait_affiliates)
 
             if upload_status == -1:
                 self.detect_previous_app(remove=True)
                 continue
 
-            self.submit_prices()
-            self.tax_debt_upload()
-            self.publish_application()
+            with TraceDuration(self.traces, "submit_prices", cat="run"):
+                self.submit_prices()
+            with TraceDuration(self.traces, "tax_debt_upload", cat="run"):
+                self.tax_debt_upload()
+            with TraceDuration(self.traces, "publish_application", cat="run"):
+                self.publish_application()
 
 
             self.end_time = time.time()
@@ -223,7 +249,37 @@ class MultiProcessor(Processor):
             if not self.orders:
                 self.mylogger.info("NO MORE ORDERS TO MONITOR!")
                 break
+                
 
+    def trace_response(self, response, *arg, **kw):
+        netname = urlparse(response.url).netloc
+        trace = dict(
+            name=netname,
+            cat="requests",
+            pid=os.getpid(),
+            tid=threading.current_thread().name,
+            args=dict(
+                url=response.url,
+                method=response.request.method,
+                status=response.status_code,
+            )
+        )
+        elapsed_micro_seconds = response.elapsed.total_seconds() / 10**-6
+        end_micro_seconds = time.time_ns() / 1000
+        begin_micro_seconds = end_micro_seconds - elapsed_micro_seconds
+        trace_begin = dict(ph="B", ts=begin_micro_seconds, **trace)
+        trace_end = dict(ph="E",ts=end_micro_seconds, **trace)
+        self.traces.extend([trace_begin, trace_end])
+    
+    def write_traces(self):
+        if not self.tracing_enabled():
+            return
+        try:
+            traces_obj = dict(traceEvents=self.traces, displayTimeUnit="ms")
+            json.dump(traces_obj, self.tracing_output)
+        finally:
+            self.tracing_output.close()
+    
 
 def main(args=None):
     if args is None:
@@ -242,9 +298,19 @@ def main(args=None):
         delay502_increment=args.response502_delay_increment,
         parallel_document_upload=args.parallel_document_upload,
         wait_affiliates=bool(args.wait_affiliates),
+        tracing_output=args.trace,
     )
 
     delay = args.exception_delay
+
+
+    original_sleep = time.sleep
+    def instrumented_sleep(delay):
+        with TraceDuration(multi_processor.traces, name="sleep", cat="sleep"):
+            return original_sleep(delay)
+
+    if multi_processor.tracing_enabled():
+        time.sleep = instrumented_sleep
 
     while True:
         try:
@@ -255,6 +321,9 @@ def main(args=None):
             multi_processor.mylogger.info(f"\n sleep for {delay} seconds\n")
             time.sleep(delay)
             delay += args.exception_delay_increment
+        
+        finally:
+            multi_processor.write_traces()
 
     return multi_processor
 
