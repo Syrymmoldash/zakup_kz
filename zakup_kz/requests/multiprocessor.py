@@ -74,6 +74,12 @@ parser.add_argument(
     type=argparse.FileType("w"),
     help="Enable tracing to TRACING_FILE.",
 )
+parser.add_argument(
+    "-s",
+    "--skip-optional-documents",
+    action="store_true",
+    help="When specified, don't upload optional documents.",
+)
 
 
 class MultiProcessor(Processor):
@@ -91,6 +97,7 @@ class MultiProcessor(Processor):
         parallel_document_upload=False,
         wait_affiliates=True,
         tracing_output=None,
+        skip_optional_documents=False,
         ):
 
         self.setup_logger()
@@ -109,6 +116,7 @@ class MultiProcessor(Processor):
         self.parallel_document_upload = parallel_document_upload
         self.wait_affiliates = wait_affiliates
         self.tracing_output = tracing_output
+        self.skip_optional_documents = skip_optional_documents
 
         self.traces = []
     
@@ -165,7 +173,10 @@ class MultiProcessor(Processor):
             f'/sendMessage?chat_id={self.config["chat_id"]}'
             f'&parse_mode=Markdown&text={message}'
         )
-        r = requests.post(url=url)
+        r = requests.post(
+            url=url,
+            hooks=self.requests_hooks(),
+        )
 
         msg = json.loads(r.text)
         if msg['ok']:
@@ -192,7 +203,10 @@ class MultiProcessor(Processor):
 
     def get_my_ip(self):
         try:
-            self.ip = requests.get('https://ipv4.webshare.io/').text
+            self.ip = requests.get(
+                'https://ipv4.webshare.io/', 
+                hooks=self.requests_hooks(),
+            ).text
         except:
             self.ip = 'unknown'
 
@@ -271,6 +285,12 @@ class MultiProcessor(Processor):
         trace_end = dict(ph="E",ts=end_micro_seconds, **trace)
         self.traces.extend([trace_begin, trace_end])
     
+    def requests_hooks(self):
+        if self.tracing_enabled():
+            return {"response": self.trace_response}
+        else:
+            return {}
+    
     def write_traces(self):
         if not self.tracing_enabled():
             return
@@ -299,6 +319,7 @@ def main(args=None):
         parallel_document_upload=args.parallel_document_upload,
         wait_affiliates=bool(args.wait_affiliates),
         tracing_output=args.trace,
+        skip_optional_documents=args.skip_optional_documents,
     )
 
     delay = args.exception_delay

@@ -89,7 +89,8 @@ class DocumentsUploader:
             cookies=cookies, 
             data=data,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
 
         self.token = self.get_token_requests(r)
@@ -154,7 +155,8 @@ class DocumentsUploader:
                     headers=headers,
                     verify=False,
                     timeout=5,
-                    proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+                    proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+                    hooks=self.requests_hooks(),
                 )
                 response = HtmlResponse(url=r.url, body=r.text, encoding='utf-8')
                 self.token = self.get_token_requests(r)
@@ -169,6 +171,8 @@ class DocumentsUploader:
         self.mylogger.info(f"processing document {i+1}/{self.to_process}")
 
         name = row.xpath('.//a/text()').get()
+
+
         with TraceDuration(self.traces, name, cat="run,document_upload"):
             link = row.xpath('.//a').attrib['href']
             document_id = link.split(sep='/')[-1]
@@ -219,18 +223,40 @@ class DocumentsUploader:
 
         if red_circle:
             time.sleep(4)
+    
+    def document_rows(self, response):
+        """
+        Return a list of document rows from a documents response.
+        """
+        table = response.xpath('.//table[@class="table table-bordered table-striped table-hover"]')[0]
+        all_document_rows = table.xpath('.//tr')[1:]
+
+        if not self.skip_optional_documents:
+            return all_document_rows
+        
+        rows = []
+        for i, row in enumerate(all_document_rows):
+            second_cell_text = row.xpath(".//td[2]/text()").get()
+            if second_cell_text and "Не Обязателен" in second_cell_text:
+                self.mylogger.info(f"Skipping optional document {i}.")
+                continue
+            rows.append(row)
+        return rows
+    
+    def uploaded_documents(self, response):
+        return len(response.xpath('.//div[@class="panel-body"]/table//span[@class="glyphicon glyphicon-ok-circle"]'))
+
+
 
     def upload_documents(self, wait_affiliates=True):
         self.mylogger.info("uploading required documents...")
 
         r = self.load_main_documents_page()
         response = HtmlResponse(url=r.url, body=r.text, encoding='utf-8')
+        rows = self.document_rows(response)
+        uploaded_documents = self.uploaded_documents(response)
 
-        table = response.xpath('.//table[@class="table table-bordered table-striped table-hover"]')[0]
-        rows = table.xpath('.//tr')
-        uploaded_documents = len(response.xpath('.//div[@class="panel-body"]/table//span[@class="glyphicon glyphicon-ok-circle"]'))
-
-        self.to_process = len(rows[1:])
+        self.to_process = len(rows) 
 
         while uploaded_documents != self.to_process:
             # now we are going to exclude all the documents that are not processed in order to
@@ -240,7 +266,7 @@ class DocumentsUploader:
             if self.parallel_document_upload:
                 self.mylogger.info("Parallel documents upload")
                 document_threads = []
-                for i, row in enumerate(rows[1:]):
+                for i, row in enumerate(rows):
                     thread = threading.Thread(target=self.upload_document, args=(i, row))
                     thread.daemon = True
                     document_threads.append(thread)
@@ -251,14 +277,13 @@ class DocumentsUploader:
                     thread.join()
             else:
                 self.mylogger.info("Serial documents upload")
-                for i, row in enumerate(rows[1:]):
+                for i, row in enumerate(rows):
                     self.upload_document(i, row)
             time.sleep(2)
             r = self.load_main_documents_page()
             response = HtmlResponse(url=r.url, body=r.text, encoding='utf-8')
-            table = response.xpath('.//table[@class="table table-bordered table-striped table-hover"]')[0]
-            rows = table.xpath('.//tr')
-            uploaded_documents = len(response.xpath('.//div[@class="panel-body"]/table//span[@class="glyphicon glyphicon-ok-circle"]'))
+            rows = self.document_rows(response)
+            uploaded_documents = self.uploaded_documents(response)
             self.mylogger.info(f"Uploaded {uploaded_documents} of {self.to_process}")
 
         self.documents_end_time = time.time()
@@ -613,7 +638,8 @@ class DocumentsUploader:
             cookies=cookies,
             data=data,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
         time.sleep(0.35)
         self.token = self.get_token_requests(r)
@@ -780,7 +806,8 @@ class DocumentsUploader:
             headers=headers, 
             cookies=cookies,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
         self.token = self.get_token_requests(r)
         time.sleep(0.35)
@@ -823,7 +850,8 @@ class DocumentsUploader:
                 headers=headers,
                 cookies=cookies,
                 verify=False,
-                proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+                proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+                hooks=self.requests_hooks(),
             )
             self.token = self.get_token_requests(r)
             time.sleep(0.35)
@@ -838,7 +866,11 @@ class DocumentsUploader:
                 continue
 
             file_id = file_url.split(sep='/')[-2]
-            file_content = requests.get(url=file_url, verify=False).content
+            file_content = requests.get(
+                url=file_url,
+                verify=False,
+                hooks=self.requests_hooks(),
+            ).content
             cms = self.sign_file(b64encode(file_content).decode('utf-8'))
 
 
@@ -880,7 +912,8 @@ class DocumentsUploader:
                 cookies=cookies, 
                 data=data,
                 verify=False,
-                proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+                proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+                hooks=self.requests_hooks(),
             )
             self.token = self.get_token_requests(r)
             time.sleep(0.35)
@@ -976,7 +1009,8 @@ class DocumentsUploader:
             headers=headers,
             data=post_data,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
 
         self.mylogger.info(f"upload_file_new {r.status_code}")
@@ -1043,7 +1077,8 @@ class DocumentsUploader:
             cookies=cookies, 
             data=data,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
         self.token = self.get_token_requests(r)
 
