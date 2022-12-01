@@ -68,6 +68,7 @@ class AuthClass:
             data=json.dumps(data), 
             headers=headers,
             verify=False,
+            hooks=self.requests_hooks(),
         )
 
         return json.loads(r.text)['result']['xml']
@@ -161,6 +162,7 @@ class AuthClass:
         self.mylogger.info("started auth procedure")
         self.auth_start_time = time.time()
         self.session = requests.Session()
+        self.session.hooks = self.requests_hooks()
 
         retries = Retry(total=10,
                         backoff_factor=0.1,

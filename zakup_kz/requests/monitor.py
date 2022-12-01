@@ -361,7 +361,8 @@ class Monitor:
             headers=headers, 
             cookies=cookies, 
             data=data,
-            verify=False
+            verify=False,
+            hooks=self.requests_hooks(),
         )
 
         self.token = self.get_token_requests(r)

@@ -49,6 +49,7 @@ class PricesSubmit:
             headers=headers,
             verify=False,
             # proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            hooks=self.requests_hooks(),
         )
 
         return json.loads(r.text)['cms']
@@ -86,9 +87,16 @@ class PricesSubmit:
             cookies=cookies,
             data=data,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
         self.token = self.get_token_requests(r)
+        try:
+            return json.loads(r.text)
+        except Exception:
+            self.mylogger.error("Failed to parse submit_documents response.")
+            return None
+
 
 
     def prices_main_page(self):
@@ -119,7 +127,8 @@ class PricesSubmit:
             headers=headers, 
             cookies=cookies,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
 
         self.mylogger.info(f'prices main page {r.status_code}')
@@ -190,7 +199,8 @@ class PricesSubmit:
             headers=headers, 
             data=data,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
         self.token = self.get_token_requests(r)
 
@@ -239,7 +249,8 @@ class PricesSubmit:
             headers=headers, 
             data=data,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
 
         self.token = self.get_token_requests(r)
@@ -248,24 +259,31 @@ class PricesSubmit:
 
 
     def submit_prices(self):
-        self.submit_documents()
         self.prices_start_time = time.time()
+        while 1:
+            submit_response = self.submit_documents()
+            if submit_response and submit_response.get("status") == "error":
+                message = submit_response.get("message", "?")
+                self.mylogger.info(f"Failed to submit documents {message!r}")
+                self.mylogger.info("Retrying to submit documents.")
+                time.sleep(4)
+            else:
+                break
+        
+        r = self.load_main_documents_page()
         r = self.prices_main_page()
+
+
+        if self.winner_lock:
+            is_winner = self.winner_lock.acquire(blocking=False)
+            if not is_winner:
+                self.mylogger.info("Looser!")
+                self.detect_previous_app(remove=True)
+                self.prices_end_time = time.time()
+                return
+            self.mylogger.info("Winner!")
+        # The winner continues as before.
         prices = self.gen_prices(r)
-
-
-        # sometimes some documents wont be uploaded
-        # in this case lets try it for 1 more time
-        if not prices:
-            for i in range(20):
-                self.upload_documents(self.wait_affiliates)
-                self.submit_documents()
-                r = self.prices_main_page()
-                prices = self.gen_prices(r)
-                if prices:
-                    break
-                time.sleep(5)
-
         # time.sleep(1.2)
         data_upload1 = self.prices_upload_1(prices)
         # time.sleep(1.2)
@@ -301,7 +319,8 @@ class PricesSubmit:
             f'https://v3bl.goszakup.gov.kz/ru/application/ajax_priceoffers_next/{self.order_id}/{self.application_id}',
             headers=headers, cookies=cookies,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
         self.mylogger.info(r.status_code)
         self.token = self.get_token_requests(r)
@@ -334,7 +353,8 @@ class PricesSubmit:
             headers=headers, 
             cookies=cookies,
             verify=False,
-            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None
+            proxies={'http': self.proxy_apply, 'https': self.proxy_apply} if self.proxy_apply else None,
+            hooks=self.requests_hooks(),
         )
         self.token = self.get_token_requests(r)
 
@@ -393,6 +413,7 @@ class PricesSubmit:
             data=data,
             verify=False,
             # proxies={'http': self.proxy, 'https': self.proxy}  if self.proxy else None
+            hooks=self.requests_hooks(),
         )
 
         self.mylogger.info("publish request response code")
