@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import json
 import argparse
 import logging
@@ -6,6 +7,7 @@ from datetime import datetime
 import threading
 import time
 import random
+from typing import Optional, Sequence
 import requests
 from urllib.parse import urlparse
 
@@ -55,7 +57,6 @@ parser.add_argument(
     help=f"Sepecify the number of SECONDS to add to the delay each time we encounter a 502 response. Default is {RESPONSE502_DELAY_INC}"
 )
 parser.add_argument(
-    "-p",
     "--parallel-document-upload",
     action="store_true",
     help="Allow for the document upload to run in parallel.",
@@ -80,6 +81,21 @@ parser.add_argument(
     action="store_true",
     help="When specified, don't upload optional documents.",
 )
+parser.add_argument(
+    "-P",
+    "--parallel-applications",
+    default=1,
+    metavar="N",
+    type=int,
+    help=(
+        "Start by creating N applications in parallel. The first to succesfuly "
+        "get affiliation will publish the application. The loosers will revoke "
+        "their applications."
+    )
+)
+
+
+           
 
 
 class MultiProcessor(Processor):
@@ -98,6 +114,9 @@ class MultiProcessor(Processor):
         wait_affiliates=True,
         tracing_output=None,
         skip_optional_documents=False,
+        traces=None,
+        open_items_event: Optional[threading.Event]=None,
+        winner_lock: Optional[threading.RLock]=None
         ):
 
         self.setup_logger()
@@ -117,8 +136,10 @@ class MultiProcessor(Processor):
         self.wait_affiliates = wait_affiliates
         self.tracing_output = tracing_output
         self.skip_optional_documents = skip_optional_documents
+        self.open_items_event = open_items_event
+        self.winner_lock = winner_lock
 
-        self.traces = []
+        self.traces = traces or []
     
     def tracing_enabled(self):
         return bool(self.tracing_output)
@@ -138,32 +159,6 @@ class MultiProcessor(Processor):
 
 
     def setup_logger(self):
-        if hasattr(self, "mylogger"):
-            return
-
-        mylogger = logging.getLogger()
-        mylogger.setLevel(logging.INFO)
-
-        #### file handler 1
-        folder = os.path.join('logs', datetime.now().strftime("%y_%m_%d"))
-        os.makedirs(folder, exist_ok=True)
-
-        output_file_handler = logging.FileHandler(
-            os.path.join(folder, f"apply_{datetime.now().strftime('%H_%M_%S')}.log"),
-            'w', 'utf-8'
-        )
-
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        output_file_handler.setFormatter(formatter)
-        output_file_handler.setLevel(logging.INFO)
-
-        mylogger.addHandler(output_file_handler)
-
-        # add stderr as file handler too
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-        ch.setFormatter(formatter)
-        mylogger.addHandler(ch)
         self.mylogger = mylogger
 
 
@@ -221,7 +216,12 @@ class MultiProcessor(Processor):
                 self.run_auth()
 
             with TraceDuration(self.traces, "multi_monitor", cat="run"):
-                open_item = self.multi_monitor(delay_502=self.delay502, delay_502_increment=self.delay502_increment)
+                if self.open_items_event:
+                    self.open_items_event.wait(timeout=None)  # Blocking until event is set.
+                    # open_item = self.open_item
+                    open_item = self.multi_monitor(delay_502=self.delay502, delay_502_increment=self.delay502_increment)
+                else:
+                    open_item = self.multi_monitor(delay_502=self.delay502, delay_502_increment=self.delay502_increment)
 
             if not open_item:
                 self.mylogger.info("\n=== NO ITEM RETURNED FROM THE MONITOR PROCESS!\n")
@@ -299,7 +299,109 @@ class MultiProcessor(Processor):
             json.dump(traces_obj, self.tracing_output)
         finally:
             self.tracing_output.close()
+
+
+@dataclass
+class ParallelApplicationRunner:
+    monitor: MultiProcessor
+    processors: Sequence[MultiProcessor]
+    traces: Optional[list]
+    open_items_event: threading.Event
+
+    def run(self):
+        application_threads = []
+        for i, processor in enumerate(self.processors):
+            processor_thread = threading.Thread(target=processor.run, name=f"Processor {i}")
+            application_threads.append(processor_thread)
+            processor_thread.daemon = True
+            processor_thread.start()
+
+        self.monitor.get_my_ip()
+        self.monitor.run_auth()
+        open_item = self.monitor.multi_monitor(
+            delay_502=self.monitor.delay502,
+            delay_502_increment=self.monitor.delay502_increment,
+        )
+        for processor in self.processors:
+            processor.open_item = open_item
+            processor.order = self.monitor.order
+            processor.order_id = self.monitor.order_id
+
+        self.open_items_event.set()  # wake up processor threads.
+
+        for thread in application_threads:
+            thread.join()
+        
+        self.monitor.write_traces()
     
+    @classmethod
+    def from_args(cls, args):
+        traces = []
+        processors = []
+        open_items_event = threading.Event()
+        winner_lock = threading.RLock()
+        for i in range(args.parallel_applications + 1):
+            processors.append(MultiProcessor(
+                config_path=args.config,
+                remove_previous=args.remove_previous,
+                fake_monitor=args.fake_monitor,
+                publish=args.publish,
+                proxy_monitor=args.proxy_monitor,
+                proxy_apply=args.proxy_apply,
+                infinite=args.infinite,
+                ignore_applied_orders=args.ignore_applied,
+                delay502=args.response502_delay,
+                delay502_increment=args.response502_delay_increment,
+                parallel_document_upload=args.parallel_document_upload,
+                wait_affiliates=bool(args.wait_affiliates),
+                tracing_output=args.trace,
+                skip_optional_documents=args.skip_optional_documents,
+                open_items_event=open_items_event,
+                winner_lock=winner_lock,
+                traces=traces,
+            ))
+        
+        monitor = processors[0]
+        processors = processors[1:]
+
+        return cls(
+            monitor=monitor,
+            processors=processors,
+            traces=traces,
+            open_items_event=open_items_event,
+        )
+
+
+
+def setup_logger():
+    mylogger = logging.getLogger()
+    mylogger.setLevel(logging.INFO)
+
+    #### file handler 1
+    folder = os.path.join('logs', datetime.now().strftime("%y_%m_%d"))
+    os.makedirs(folder, exist_ok=True)
+
+    output_file_handler = logging.FileHandler(
+        os.path.join(folder, f"apply_{datetime.now().strftime('%H_%M_%S')}.log"),
+        'w', 'utf-8'
+    )
+
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s [%(threadName)s] - %(message)s')
+    output_file_handler.setFormatter(formatter)
+    output_file_handler.setLevel(logging.INFO)
+
+    mylogger.addHandler(output_file_handler)
+
+    # add stderr as file handler too
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(formatter)
+    mylogger.addHandler(ch)
+
+    return mylogger
+
+
+mylogger = setup_logger()
 
 def main(args=None):
     if args is None:
@@ -330,19 +432,24 @@ def main(args=None):
         with TraceDuration(multi_processor.traces, name="sleep", cat="sleep"):
             return original_sleep(delay)
 
-    if multi_processor.tracing_enabled():
+    if args.trace:
         time.sleep = instrumented_sleep
 
     while True:
         try:
-            multi_processor.run()
-            break
+            if args.parallel_applications > 1:
+                app_runner = ParallelApplicationRunner.from_args(args)
+                app_runner.run()
+                multi_processor = app_runner.monitor
+                break
+            else:
+                multi_processor.run()
+                break
         except Exception as e:
             multi_processor.mylogger.exception(e)
             multi_processor.mylogger.info(f"\n sleep for {delay} seconds\n")
             time.sleep(delay)
             delay += args.exception_delay_increment
-        
         finally:
             multi_processor.write_traces()
 

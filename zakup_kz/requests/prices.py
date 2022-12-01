@@ -272,6 +272,17 @@ class PricesSubmit:
         
         r = self.load_main_documents_page()
         r = self.prices_main_page()
+
+
+        if self.winner_lock:
+            is_winner = self.winner_lock.acquire(blocking=False)
+            if not is_winner:
+                self.mylogger.info("Looser!")
+                self.detect_previous_app(remove=True)
+                self.prices_end_time = time.time()
+                return
+            self.mylogger.info("Winner!")
+        # The winner continues as before.
         prices = self.gen_prices(r)
         # time.sleep(1.2)
         data_upload1 = self.prices_upload_1(prices)
